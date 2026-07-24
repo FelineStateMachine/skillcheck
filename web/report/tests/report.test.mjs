@@ -1,0 +1,3 @@
+import test from 'node:test'; import assert from 'node:assert/strict'; import { readFile } from 'node:fs/promises';
+test('contract fixture is versioned and sanitized', async () => { const data=JSON.parse(await readFile(new URL('../schema/fixtures/minimal.json', import.meta.url))); assert.equal(data.version,'1'); assert.equal(JSON.stringify(data).includes('/Users/'),false); });
+test('renderer declares no network or storage APIs', async () => { const source=await readFile(new URL('../src/main.ts', import.meta.url),'utf8'); assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|localStorage|sessionStorage/); });

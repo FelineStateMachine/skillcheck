@@ -38,6 +38,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if args[0] == "correction" {
 		return runCorrection(args[1:], stdout, stderr)
 	}
+	if args[0] == "export" {
+		return runExport(ctx, args[1:], stdout, stderr)
+	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	format := fs.String("format", "text", "output format: text or json")
