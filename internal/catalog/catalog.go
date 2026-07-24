@@ -22,6 +22,9 @@ var workflowMigration string
 //go:embed migrations/004_cohorts.sql
 var cohortMigration string
 
+//go:embed migrations/005_policy_revisions.sql
+var policyMigration string
+
 type Catalog struct{ db *sql.DB }
 
 func Open(path string) (*Catalog, error) {
@@ -39,7 +42,7 @@ func Open(path string) (*Catalog, error) {
 		return nil, fmt.Errorf("open catalog: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(initialMigration + "\n" + analysisMigration + "\n" + workflowMigration + "\n" + cohortMigration); err != nil {
+	if _, err := db.Exec(initialMigration + "\n" + analysisMigration + "\n" + workflowMigration + "\n" + cohortMigration + "\n" + policyMigration); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate catalog: %w", err)
 	}
