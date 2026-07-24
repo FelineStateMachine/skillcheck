@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 
 	"skilltrace/internal/adapters"
 	"skilltrace/internal/adapters/claude"
@@ -44,14 +44,12 @@ func (a *Application) Scan(ctx context.Context, req ScanRequest, progress Progre
 	if err != nil {
 		return ScanResult{}, apperror.Wrap("malformed_source", "source could not be parsed", err)
 	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
+	abs, err := filepath.Abs(req.Input)
+	if err != nil {
 		return ScanResult{}, err
 	}
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return ScanResult{}, err
-	}
-	sourceKey := req.Harness + ":" + hex.EncodeToString(h.Sum(nil)[:12])
+	h := sha256.Sum256([]byte(filepath.Clean(abs)))
+	sourceKey := req.Harness + ":" + hex.EncodeToString(h[:12])
 	snapshot, err := a.Catalog.ReplaceSource(ctx, sourceKey, result)
 	if err != nil {
 		return ScanResult{}, apperror.Wrap("catalog_write_failed", "catalog update failed", err)

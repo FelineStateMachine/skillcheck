@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"fmt"
@@ -25,7 +26,13 @@ var cohortMigration string
 //go:embed migrations/005_policy_revisions.sql
 var policyMigration string
 
-type Catalog struct{ db *sql.DB }
+//go:embed migrations/006_lifecycle.sql
+var lifecycleMigration string
+
+type Catalog struct {
+	db   *sql.DB
+	path string
+}
 
 func Open(path string) (*Catalog, error) {
 	if path == "" {
@@ -42,7 +49,7 @@ func Open(path string) (*Catalog, error) {
 		return nil, fmt.Errorf("open catalog: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(initialMigration + "\n" + analysisMigration + "\n" + workflowMigration + "\n" + cohortMigration + "\n" + policyMigration); err != nil {
+	if err := migrate(context.Background(), db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate catalog: %w", err)
 	}
@@ -50,7 +57,7 @@ func Open(path string) (*Catalog, error) {
 		db.Close()
 		return nil, fmt.Errorf("protect catalog: %w", err)
 	}
-	return &Catalog{db: db}, nil
+	return &Catalog{db: db, path: path}, nil
 }
 
 func (c *Catalog) Close() error { return c.db.Close() }
