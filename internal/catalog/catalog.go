@@ -16,6 +16,9 @@ var initialMigration string
 //go:embed migrations/002_skills_episodes.sql
 var analysisMigration string
 
+//go:embed migrations/003_workflows.sql
+var workflowMigration string
+
 type Catalog struct{ db *sql.DB }
 
 func Open(path string) (*Catalog, error) {
@@ -33,7 +36,7 @@ func Open(path string) (*Catalog, error) {
 		return nil, fmt.Errorf("open catalog: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(initialMigration + "\n" + analysisMigration); err != nil {
+	if _, err := db.Exec(initialMigration + "\n" + analysisMigration + "\n" + workflowMigration); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate catalog: %w", err)
 	}

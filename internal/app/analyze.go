@@ -13,6 +13,7 @@ type AnalyzeResult struct {
 	State    string                `json:"state"`
 	Episodes []detection.Episode   `json:"episodes"`
 	Possible []detection.Candidate `json:"possible,omitempty"`
+	Workflow WorkflowResult        `json:"workflow"`
 }
 
 func (a *Application) Analyze(ctx context.Context, req AnalyzeRequest) (AnalyzeResult, error) {
@@ -39,5 +40,9 @@ func (a *Application) Analyze(ctx context.Context, req AnalyzeRequest) (AnalyzeR
 	if len(episodes) == 0 {
 		state = "no_uses"
 	}
-	return AnalyzeResult{Skill: req.Skill, Scope: req.Scope, State: state, Episodes: episodes, Possible: possible}, nil
+	workflowResult, err := a.BuildWorkflow(ctx, episodes)
+	if err != nil {
+		return AnalyzeResult{}, err
+	}
+	return AnalyzeResult{Skill: req.Skill, Scope: req.Scope, State: state, Episodes: episodes, Possible: possible, Workflow: workflowResult}, nil
 }

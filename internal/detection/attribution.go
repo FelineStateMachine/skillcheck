@@ -22,9 +22,11 @@ func Attribute(events []trace.Event, candidates []Candidate) []Episode {
 			end = events[len(events)-1].Sequence
 		}
 		seq := []int64{}
+		seen := map[int64]bool{}
 		for _, e := range events {
-			if e.Sequence >= c.Start && e.Sequence <= end {
+			if e.Sequence >= c.Start && e.Sequence <= end && !seen[e.Sequence] {
 				seq = append(seq, e.Sequence)
+				seen[e.Sequence] = true
 			}
 		}
 		result = append(result, Episode{Skill: c.Skill, Actor: c.Actor, Tier: c.Tier, Start: c.Start, End: end, EventSequences: seq, Outcome: Outcome(events, c.Start, end)})
