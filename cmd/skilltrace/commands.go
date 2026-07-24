@@ -25,6 +25,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if args[0] == "source" {
 		return runSource(ctx, args, stdout, stderr)
 	}
+	if args[0] == "sync" {
+		return runSync(ctx, args[1:], stdout, stderr)
+	}
 	if args[0] == "benchmark" {
 		return runBenchmark(ctx, args, stdout, stderr)
 	}
