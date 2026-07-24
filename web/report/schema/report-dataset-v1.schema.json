@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skilltrace-report-dataset-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "title", "generatedAt", "skillAlias", "freshness", "caveats", "comparison"],
+  "properties": {
+    "version": {"const": "1"},
+    "title": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "skillAlias": {"type": "string"},
+    "freshness": {"type": "string"},
+    "caveats": {"type": "array", "items": {"type": "string"}},
+    "comparison": {"type": "object"}
+  }
+}

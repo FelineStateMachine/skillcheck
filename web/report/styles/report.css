@@ -1,0 +1,6 @@
+:root { --paper:#f5f0e5; --ink:#20251f; --amber:#b56b20; --green:#35644a; --line:#c9bea9; }
+* { box-sizing:border-box; } body { margin:0; color:var(--ink); background:radial-gradient(circle at 80% 0,#fff9e8,var(--paper) 45%); font:16px Georgia,serif; }
+header,main { max-width:1100px; margin:auto; padding:2rem; } h1,h2 { font-family:"Palatino Linotype",Palatino,serif; } #comparison { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+section { background:#fffdf6; border:1px solid var(--line); padding:1rem; box-shadow:4px 4px 0 #dfd5c3; } svg { width:100%; height:auto; } rect { fill:#fff8e8; stroke:var(--green); } text { fill:var(--ink); font:14px Georgia,serif; }
+button { color:var(--ink); background:transparent; border:0; border-bottom:2px solid var(--amber); padding:.35rem; text-align:left; cursor:pointer; } button:focus { outline:3px solid var(--amber); }
+@media (max-width:700px) { #comparison { grid-template-columns:1fr; } header,main { padding:1rem; } }

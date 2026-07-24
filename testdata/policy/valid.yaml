@@ -1,0 +1,26 @@
+version: 1
+corrections:
+  - id: accept-nzip-probable
+    enabled: true
+    match:
+      skill: nzip
+      tier: probable
+    label: confirmed
+findings:
+  - id: nzip-verification
+    kind: strength
+    title: Verification observed
+    detail: The workflow includes verification evidence.
+    match:
+      skill: nzip
+    min_samples: 1
+    capabilities: [tool_calls]
+cohorts:
+  - id: primary-nzip
+    match:
+      skill: nzip
+      actor: primary
+action_rollups:
+  - id: inspect-actions
+    stage: inspect
+    actions: [read, search]

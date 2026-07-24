@@ -1,0 +1,5 @@
+{"type":"session_start","version":1,"model":"claude-sonnet-4","actor":"main"}
+{"type":"skill_use","version":1,"skill":"nzip","actor":"agent-1"}
+{"type":"tool_use","version":1,"tool":"Bash","tool_use_id":"call-1","actor":"agent-1"}
+{"type":"tool_result","version":1,"tool_use_id":"call-1","status":"success","actor":"agent-1"}
+{"type":"completion","version":1,"status":"success"}

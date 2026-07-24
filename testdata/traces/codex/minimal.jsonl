@@ -1,0 +1,7 @@
+{"type":"session","model":"gpt-5-codex","payload":"RAW_CANARY_SESSION"}
+{"type":"skill","skill":"SECRET_SKILL_CANARY","payload":"RAW_CANARY_SKILL"}
+{"type":"tool","tool":"shell","status":"completed","payload":{"command":"RAW_CANARY_COMMAND"}}
+{"type":"file","operation":"write","path":"/Users/private/RAW_CANARY_PATH.txt","payload":"RAW_CANARY_CONTENT"}
+{"type":"completion","status":"success","payload":"RAW_CANARY_RESPONSE"}
+{"type":"usage","input_tokens":120,"output_tokens":42,"payload":"RAW_CANARY_USAGE"}
+{"type":"future_record","payload":"RAW_CANARY_UNKNOWN"}
