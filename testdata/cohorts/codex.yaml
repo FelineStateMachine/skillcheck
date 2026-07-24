@@ -1,0 +1,7 @@
+{
+  "definition": {"id":"codex-gpt5","label":"Codex / GPT-5","skill":"nzip","harness":"codex","model":"gpt-5","model_scope":"exact"},
+  "members": [
+    {"id":"codex-1","skill":"nzip","harness":"codex","model":"gpt-5","family":"gpt","occurred_at":"2026-01-10T00:00:00Z","capabilities":{"actors":true,"skill_evidence":true,"tool_calls":true,"file_events":true,"usage":true},"variant":{"key":"orient:skill>execute:tool","count":3,"steps":[{"stage":"orient","action":"skill"},{"stage":"execute","action":"tool"}]}},
+    {"id":"codex-2","skill":"nzip","harness":"codex","model":"gpt-5","family":"gpt","occurred_at":"2026-01-11T00:00:00Z","capabilities":{"actors":true,"skill_evidence":true,"tool_calls":true,"file_events":true,"usage":true},"variant":{"key":"orient:skill>execute:tool>verify:completion","count":3,"steps":[{"stage":"orient","action":"skill"},{"stage":"execute","action":"tool"},{"stage":"verify","action":"completion"}]}}
+  ]
+}

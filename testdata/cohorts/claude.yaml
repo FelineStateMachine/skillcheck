@@ -1,0 +1,6 @@
+{
+  "definition": {"id":"claude-sonnet","label":"Claude / Sonnet","skill":"nzip","harness":"claude","model":"claude-sonnet","model_scope":"exact"},
+  "members": [
+    {"id":"claude-1","skill":"nzip","harness":"claude","model":"claude-sonnet","family":"claude","occurred_at":"2026-01-10T00:00:00Z","capabilities":{"actors":true,"skill_evidence":true,"tool_calls":true,"file_events":true,"usage":false},"variant":{"key":"orient:skill>execute:tool>verify:completion","count":5,"steps":[{"stage":"orient","action":"skill"},{"stage":"execute","action":"tool"},{"stage":"verify","action":"completion"}]}}
+  ]
+}
