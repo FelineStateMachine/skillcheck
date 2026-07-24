@@ -13,6 +13,9 @@ import (
 //go:embed migrations/001_initial.sql
 var initialMigration string
 
+//go:embed migrations/002_skills_episodes.sql
+var analysisMigration string
+
 type Catalog struct{ db *sql.DB }
 
 func Open(path string) (*Catalog, error) {
@@ -30,7 +33,7 @@ func Open(path string) (*Catalog, error) {
 		return nil, fmt.Errorf("open catalog: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(initialMigration); err != nil {
+	if _, err := db.Exec(initialMigration + "\n" + analysisMigration); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate catalog: %w", err)
 	}
@@ -42,6 +45,8 @@ func Open(path string) (*Catalog, error) {
 }
 
 func (c *Catalog) Close() error { return c.db.Close() }
+
+func (c *Catalog) DB() *sql.DB { return c.db }
 
 type Health struct {
 	SourceKey      string `json:"source_key"`

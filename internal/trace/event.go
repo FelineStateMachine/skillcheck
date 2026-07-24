@@ -31,3 +31,5 @@ func NewEvent(kind string, sequence, line int64, payload any) (Event, error) {
 	}
 	return Event{Version: ContractVersion, Kind: kind, Sequence: sequence, Coordinate: Coordinate{Line: line}, Payload: b}, nil
 }
+
+func DecodePayload(event Event, target any) error { return json.Unmarshal(event.Payload, target) }

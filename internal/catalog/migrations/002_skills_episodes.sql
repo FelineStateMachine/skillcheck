@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS skills (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, revision TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS skill_exposures (skill_id TEXT NOT NULL REFERENCES skills(id) ON DELETE CASCADE, harness TEXT NOT NULL, scope TEXT NOT NULL, root_label TEXT NOT NULL, PRIMARY KEY(skill_id,harness,scope,root_label));
+CREATE TABLE IF NOT EXISTS candidates (id INTEGER PRIMARY KEY, source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE, skill_id TEXT, skill_name TEXT NOT NULL, automated_label TEXT NOT NULL, final_label TEXT NOT NULL, actor TEXT NOT NULL, start_sequence INTEGER NOT NULL, end_sequence INTEGER NOT NULL, analyzer_revision TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS episodes (id INTEGER PRIMARY KEY, candidate_id INTEGER NOT NULL UNIQUE REFERENCES candidates(id) ON DELETE CASCADE, outcome TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS episode_events (episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE, sequence INTEGER NOT NULL, shared INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(episode_id,sequence));
