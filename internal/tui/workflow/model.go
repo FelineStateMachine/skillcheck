@@ -6,9 +6,11 @@ import (
 )
 
 type Model struct {
+	Skill           string
 	Graph           core.Graph
 	Metrics         core.Metrics
 	Findings        []core.Finding
+	Shapes          []core.Shape
 	Plan            layout.Plan
 	Cursor, Variant int
 	Width, Height   int
@@ -16,12 +18,13 @@ type Model struct {
 	EvidenceOpen    bool
 }
 
-func New(graph core.Graph, metrics core.Metrics, findings []core.Finding, width int) Model {
-	return Model{Graph: graph, Metrics: metrics, Findings: findings, Width: width, Plan: layout.Terminal(graph, width)}
+func New(skill string, graph core.Graph, metrics core.Metrics, findings []core.Finding, shapes []core.Shape, width int) Model {
+	return Model{Skill: skill, Graph: graph, Metrics: metrics, Findings: findings, Shapes: shapes, Width: width, Plan: layout.Terminal(graph, width)}
 }
+
 func (m Model) Selected() (core.Node, bool) {
-	if m.Cursor < 0 || m.Cursor >= len(m.Graph.Nodes) {
+	if m.Cursor < 0 || m.Cursor >= len(m.rankedNodes()) {
 		return core.Node{}, false
 	}
-	return m.Graph.Nodes[m.Cursor], true
+	return m.rankedNodes()[m.Cursor], true
 }

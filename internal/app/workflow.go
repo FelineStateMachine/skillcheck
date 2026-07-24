@@ -12,8 +12,12 @@ type WorkflowResult struct {
 	Graph        workflow.Graph          `json:"graph"`
 	Metrics      workflow.Metrics        `json:"metrics"`
 	Findings     []workflow.Finding      `json:"findings"`
+	Shapes       []workflow.Shape        `json:"shapes,omitempty"`
 	Capabilities trace.CapabilityProfile `json:"capabilities"`
 }
+
+// topShapes is how many class-level shapes the workflow surfaces.
+const topShapes = 6
 
 // BuildWorkflow projects episodes onto the events they were attributed from.
 //
@@ -62,7 +66,13 @@ func (a *Application) BuildWorkflow(ctx context.Context, analyses []sessionAnaly
 	variants := sortedVariants(merged)
 	metrics.Samples = offset
 	metrics.Variants = len(variants)
-	result := WorkflowResult{Graph: workflow.Project(variants), Metrics: metrics, Findings: workflow.Evaluate(metrics, variants, capabilities), Capabilities: capabilities}
+	result := WorkflowResult{
+		Graph:        workflow.Project(variants),
+		Metrics:      metrics,
+		Findings:     workflow.Evaluate(metrics, variants, capabilities),
+		Shapes:       workflow.Shapes(variants, topShapes),
+		Capabilities: capabilities,
+	}
 	if err := a.Catalog.SaveWorkflow(ctx, result.Graph, result.Metrics, result.Findings); err != nil {
 		return WorkflowResult{}, err
 	}

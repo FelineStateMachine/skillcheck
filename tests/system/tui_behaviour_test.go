@@ -130,7 +130,7 @@ func TestWorkflowRouteIsReachableFromEpisodes(t *testing.T) {
 	if root.Route != tui.WorkflowRoute {
 		t.Fatalf("w did not open the workflow route, route = %v", root.Route)
 	}
-	if view := root.View().Content; !strings.Contains(view, "WORKFLOW MAP") {
+	if view := root.View().Content; !strings.Contains(view, "WORKFLOW") {
 		t.Fatalf("workflow view not rendered:\n%s", view)
 	}
 	_, _ = root.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))

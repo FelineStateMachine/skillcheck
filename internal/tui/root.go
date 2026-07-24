@@ -224,7 +224,7 @@ func (m *Root) updateEpisodesKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case isKey(msg, "down", "j") && m.Episodes.Cursor+1 < len(m.Episodes.Episodes):
 		m.Episodes.Cursor++
 	case isKey(msg, "w"):
-		m.Workflow = workflow.New(m.analysis.Workflow.Graph, m.analysis.Workflow.Metrics, m.analysis.Workflow.Findings, m.width)
+		m.Workflow = workflow.New(m.analysis.Skill, m.analysis.Workflow.Graph, m.analysis.Workflow.Metrics, m.analysis.Workflow.Findings, m.analysis.Workflow.Shapes, m.width)
 		m.Workflow.Height = m.height
 		m.Workflow.ASCII = !m.config.Unicode
 		m.Route = WorkflowRoute
@@ -390,7 +390,7 @@ func (m *Root) View() tea.View {
 	case EpisodesRoute:
 		content = m.Episodes.View(episodes.Styles{Title: m.theme.Title, Heading: m.theme.Heading, Selected: m.theme.Selected, Muted: m.theme.Muted}, m.config.Unicode)
 	case WorkflowRoute:
-		content = m.Workflow.View()
+		content = m.Workflow.View(workflow.Styles{Title: m.theme.Title, Heading: m.theme.Heading, Selected: m.theme.Selected, Muted: m.theme.Muted, Good: m.theme.Good, Warning: m.theme.Warning})
 	case ComparisonRoute:
 		content = m.Comparison.View()
 	case PolicyRoute:

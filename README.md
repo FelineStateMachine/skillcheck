@@ -2,6 +2,17 @@
 
 `skilltrace` discovers local AI skills and turns supported Codex, Claude, and eligible Hugging Face traces into sanitized usage episodes, workflows, comparisons, and offline reports.
 
+## Machine-wide sync
+
+`skilltrace sync` walks your Claude and Codex trace directories, scans everything new or changed since the last run, and skips the rest:
+
+```sh
+skilltrace sync                              # ~/.claude/projects and ~/.codex/sessions
+skilltrace sync --claude-root PATH --codex-root PATH
+```
+
+Sessions are labelled by project (the working directory's folder name only — `~/Developer/lofi` is recorded as `lofi`) and git branch. Tool use is captured with real tool names and success/failure, so the workflow view shows which tools a skill leans on, how often, and where it errors.
+
 ## Install and run
 
 Download the native archive for your platform or build with Go 1.24:

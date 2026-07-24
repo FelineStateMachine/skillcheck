@@ -81,11 +81,14 @@ func TestAnalyzeIsolatesSourcesFromEachOther(t *testing.T) {
 // from 1 must not overwrite each other in that lookup.
 func TestWorkflowVariantsDoNotCollideAcrossSources(t *testing.T) {
 	dir := t.TempDir()
-	write := func(name, skill string, tools int) string {
+	// Distinct tool sequences, not just different lengths: run-collapsing folds
+	// repeats of one tool into a single step, so shape difference must come
+	// from the tools used, not how many times.
+	write := func(name, skill string, tools []string) string {
 		path := filepath.Join(dir, name)
 		body := "{\"type\":\"session\",\"model\":\"gpt-5-codex\"}\n{\"type\":\"skill\",\"skill\":\"" + skill + "\"}\n"
-		for range tools {
-			body += "{\"type\":\"tool\",\"tool\":\"shell\",\"status\":\"completed\",\"payload\":{\"command\":\"echo\"}}\n"
+		for _, tool := range tools {
+			body += "{\"type\":\"tool\",\"tool\":\"" + tool + "\",\"status\":\"completed\"}\n"
 		}
 		body += "{\"type\":\"completion\",\"status\":\"success\"}\n"
 		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
@@ -93,7 +96,8 @@ func TestWorkflowVariantsDoNotCollideAcrossSources(t *testing.T) {
 		}
 		return path
 	}
-	short, long := write("short.jsonl", "shared-skill", 1), write("long.jsonl", "shared-skill", 6)
+	short := write("short.jsonl", "shared-skill", []string{"shell"})
+	long := write("long.jsonl", "shared-skill", []string{"shell", "read", "edit"})
 
 	c, err := catalog.Open(filepath.Join(t.TempDir(), "catalog.db"))
 	if err != nil {
