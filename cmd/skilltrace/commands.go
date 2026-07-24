@@ -8,17 +8,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/mattn/go-isatty"
 	"skilltrace/internal/app"
 	"skilltrace/internal/apperror"
 	"skilltrace/internal/catalog"
 	"skilltrace/internal/headless"
+	"skilltrace/internal/tui"
 )
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		fmt.Fprintln(stderr, "usage: skilltrace <source|discover|analyze> [options]")
-		return 2
+		return runTUI(stdout, stderr)
 	}
 	if args[0] == "source" {
 		return runSource(ctx, args, stdout, stderr)
@@ -71,6 +74,37 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "unknown command")
 		return 2
 	}
+}
+
+func runTUI(stdout, stderr io.Writer) int {
+	c, err := catalog.Open(defaultCatalogPath())
+	if err != nil {
+		fmt.Fprintln(stderr, "catalog is unavailable")
+		return 1
+	}
+	defer c.Close()
+	skillRoot := os.Getenv("SKILLTRACE_SKILL_ROOT")
+	if skillRoot == "" {
+		skillRoot = filepath.Join(".codex", "skills")
+	}
+	color := false
+	if f, ok := stdout.(*os.File); ok {
+		color = isatty.IsTerminal(f.Fd()) && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == ""
+	}
+	locale := strings.ToUpper(os.Getenv("LC_ALL") + os.Getenv("LC_CTYPE") + os.Getenv("LANG"))
+	root, err := tui.Load(app.New(c), tui.Config{
+		SkillRoot: skillRoot, ScanInput: os.Getenv("SKILLTRACE_SCAN_INPUT"), Harness: "codex",
+		Color: color, Unicode: strings.Contains(locale, "UTF-8") || strings.Contains(locale, "UTF8"),
+	})
+	if err != nil {
+		fmt.Fprintln(stderr, "could not load discovery")
+		return 1
+	}
+	if _, err := tea.NewProgram(root, tea.WithOutput(stdout)).Run(); err != nil {
+		fmt.Fprintln(stderr, "terminal session failed")
+		return 1
+	}
+	return 0
 }
 
 func runSource(ctx context.Context, args []string, stdout, stderr io.Writer) int {
