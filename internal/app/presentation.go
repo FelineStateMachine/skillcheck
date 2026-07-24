@@ -1,7 +1,9 @@
 package app
 
 import (
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"skilltrace/internal/catalog"
@@ -36,6 +38,10 @@ type EpisodeSnapshot struct {
 	Tier         detection.Tier
 	Capabilities []string
 	Evidence     []string
+	// Start and End bound the episode in the event stream. Episodes of one
+	// skill are otherwise indistinguishable from each other in a list.
+	Start int64
+	End   int64
 }
 
 type DiscoverySnapshot struct {
@@ -50,7 +56,8 @@ func PresentDiscovery(discovered DiscoverResult, health []catalog.Health, now ti
 	for _, skill := range discovered.Skills {
 		snapshot.Skills = append(snapshot.Skills, SkillSnapshot{
 			ID: skill.Identity.ID, Name: skill.Identity.Name, Description: skill.Identity.Description,
-			Installed: true, Exposures: append([]skills.Exposure(nil), skill.Exposures...), State: "cached",
+			Installed: true, Exposures: append([]skills.Exposure(nil), skill.Exposures...),
+			State: exposureLabel(skill.Exposures),
 		})
 	}
 	for _, source := range health {
@@ -63,6 +70,33 @@ func PresentDiscovery(discovered DiscoverResult, health []catalog.Health, now ti
 	return snapshot
 }
 
+// exposureLabel summarises where a skill is installed. Every skill reporting
+// the same literal "cached" made the column pure noise, while the exposures
+// that carry the real answer went unread.
+func exposureLabel(exposures []skills.Exposure) string {
+	if len(exposures) == 0 {
+		return "unknown"
+	}
+	var harnesses, scopes []string
+	for _, exposure := range exposures {
+		if exposure.Harness != "" && !slices.Contains(harnesses, exposure.Harness) {
+			harnesses = append(harnesses, exposure.Harness)
+		}
+		if exposure.Scope != "" && !slices.Contains(scopes, exposure.Scope) {
+			scopes = append(scopes, exposure.Scope)
+		}
+	}
+	sort.Strings(harnesses)
+	sort.Strings(scopes)
+	if len(harnesses) == 0 {
+		return strings.Join(scopes, "+")
+	}
+	if len(scopes) == 0 {
+		return strings.Join(harnesses, "+")
+	}
+	return strings.Join(harnesses, "+") + "/" + strings.Join(scopes, "+")
+}
+
 func PresentEpisodes(result AnalyzeResult) []EpisodeSnapshot {
 	episodes := make([]EpisodeSnapshot, 0, len(result.Episodes))
 	for _, episode := range result.Episodes {
@@ -73,6 +107,7 @@ func PresentEpisodes(result AnalyzeResult) []EpisodeSnapshot {
 		episodes = append(episodes, EpisodeSnapshot{
 			Actor: episode.Actor, Outcome: episode.Outcome, Tier: episode.Tier,
 			Capabilities: []string{"actor", "outcome", "evidence"}, Evidence: evidence,
+			Start: episode.Start, End: episode.End,
 		})
 	}
 	return episodes

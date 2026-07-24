@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -32,17 +33,28 @@ func (a *Application) Scan(ctx context.Context, req ScanRequest, progress Progre
 	if !registry.Supports(req.Harness) {
 		return ScanResult{}, apperror.Wrap("unsupported_harness", "unsupported harness", nil)
 	}
+	// Errors name the file so a failed scan is actionable, but only by base
+	// name: docs/privacy.md commits to keeping source paths out of
+	// presentation records.
+	name := filepath.Base(req.Input)
 	f, err := os.Open(req.Input)
 	if err != nil {
-		return ScanResult{}, apperror.Wrap("source_unavailable", "source is unavailable", err)
+		return ScanResult{}, apperror.Wrap("source_unavailable", "source is unavailable: "+name, err)
 	}
 	defer f.Close()
+
+	var reader io.Reader = f
 	if progress != nil {
 		progress(Progress{Stage: "parsing", Completed: 0, Total: 1})
+		// Parsing dominates a scan, so progress is reported from the bytes
+		// consumed rather than from the two lifecycle points around it.
+		if info, err := f.Stat(); err == nil && info.Size() > 0 {
+			reader = &progressReader{reader: f, total: info.Size(), report: progress}
+		}
 	}
-	result, err := registry.Parse(ctx, req.Harness, f)
+	result, err := registry.Parse(ctx, req.Harness, reader)
 	if err != nil {
-		return ScanResult{}, apperror.Wrap("malformed_source", "source could not be parsed", err)
+		return ScanResult{}, apperror.Wrap("malformed_source", "source could not be parsed: "+name, err)
 	}
 	abs, err := filepath.Abs(req.Input)
 	if err != nil {
@@ -66,6 +78,27 @@ func (a *Application) Scan(ctx context.Context, req ScanRequest, progress Progre
 		status = "supported"
 	}
 	return ScanResult{Source: catalog.Health{SourceKey: sourceKey, Harness: req.Harness, Status: status, Revision: snapshot.Revision, EventCount: snapshot.EventCount, ExclusionCount: snapshot.ExclusionCount}, Capabilities: result.Capabilities}, nil
+}
+
+// progressReader reports parse progress as a fraction of the source consumed.
+// Reports are throttled to whole percentage points so a large trace does not
+// flood the presentation layer with redundant updates.
+type progressReader struct {
+	reader   io.Reader
+	total    int64
+	read     int64
+	reported int64
+	report   ProgressFunc
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.reader.Read(b)
+	p.read += int64(n)
+	if percent := p.read * 100 / p.total; percent > p.reported {
+		p.reported = percent
+		p.report(Progress{Stage: "parsing", Completed: int(percent), Total: 100})
+	}
+	return n, err
 }
 
 func (a *Application) Health() ([]catalog.Health, error) {

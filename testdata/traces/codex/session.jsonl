@@ -1,0 +1,12 @@
+{"timestamp":"2026-07-20T22:12:47.586Z","type":"session_meta","payload":{"id":"019f8196-bd59-7253","cwd":"/Users/private/Developer/puzzletea","timestamp":"2026-07-20T22:12:47.586Z","model_provider":"openai","git":{"branch":"feat/netwalk","commit_hash":"402f019","repository_url":"git@github.com:example/puzzletea.git"}}}
+{"timestamp":"2026-07-20T22:12:48.000Z","type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}}
+{"timestamp":"2026-07-20T22:12:50.000Z","type":"response_item","payload":{"type":"reasoning","summary":"RAW_CANARY_REASONING"}}
+{"timestamp":"2026-07-20T22:12:51.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"cat /Users/private/RAW_CANARY_PATH.txt\"}","call_id":"call_A"}}
+{"timestamp":"2026-07-20T22:12:52.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_A","output":"Chunk ID: x\nProcess exited with code 0\nOutput:\nRAW_CANARY_OUTPUT"}}
+{"timestamp":"2026-07-20T22:12:53.000Z","type":"response_item","payload":{"type":"function_call","name":"apply_patch","arguments":"{\"input\":\"RAW_CANARY_PATCH\"}","call_id":"call_B"}}
+{"timestamp":"2026-07-20T22:12:54.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_B","output":"Process exited with code 1\nerror: patch failed"}}
+{"timestamp":"2026-07-20T22:12:55.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"web_search","input":"RAW_CANARY_QUERY","call_id":"call_C","status":"completed"}}
+{"timestamp":"2026-07-20T22:12:56.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_C","output":"Process exited with code 0"}}
+{"timestamp":"2026-07-20T22:12:57.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"RAW_CANARY_MESSAGE"}]}}
+{"timestamp":"2026-07-20T22:12:58.000Z","type":"event_msg","payload":{"type":"token_count","total":1234}}
+{"type":"unknown_future_record","payload":{"whatever":"RAW_CANARY_UNKNOWN"}}

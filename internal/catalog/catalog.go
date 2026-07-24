@@ -29,6 +29,12 @@ var policyMigration string
 //go:embed migrations/006_lifecycle.sql
 var lifecycleMigration string
 
+//go:embed migrations/007_sessions.sql
+var sessionsMigration string
+
+//go:embed migrations/008_sync_state.sql
+var syncStateMigration string
+
 type Catalog struct {
 	db   *sql.DB
 	path string

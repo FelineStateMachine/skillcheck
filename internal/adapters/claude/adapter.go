@@ -1,90 +1,177 @@
 package claude
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
+
 	"skilltrace/internal/adapters"
-	"skilltrace/internal/modelregistry"
 	"skilltrace/internal/trace"
 )
+
+const maxRecordBytes = 16 << 20
 
 type Adapter struct{ sanitizer trace.Sanitizer }
 
 func New(s trace.Sanitizer) *Adapter { return &Adapter{sanitizer: s} }
 
+// Parse reads a real Claude Code transcript.
+//
+// The transcript is a stream of assistant/user/system records. Tool use lives
+// inside assistant messages as tool_use content blocks, and outcomes arrive
+// later as tool_result blocks in user messages, paired by tool_use_id. The
+// harness also stamps each assistant turn with attributionSkill — the skill it
+// considers active — which is a far stronger skill signal than the Skill tool
+// firing, and the one that closes the "referenced but never invoked" gap.
+//
+// Records that do not decode, or that carry a type skilltrace does not model,
+// become exclusions or are ignored rather than aborting the file: one
+// malformed line in a thousand-line transcript must not discard the session.
 func (a *Adapter) Parse(ctx context.Context, input io.Reader) (adapters.Result, error) {
 	result := adapters.Result{Harness: "claude", Capabilities: trace.ClaudeCapabilities()}
-	s := bufio.NewScanner(input)
-	s.Buffer(make([]byte, 64*1024), 4<<20)
-	red := newReducer()
-	var line, sequence int64
-	for s.Scan() {
-		line++
-		if err := ctx.Err(); err != nil {
-			return adapters.Result{}, err
-		}
-		var rec record
-		if err := json.Unmarshal(s.Bytes(), &rec); err != nil {
-			return adapters.Result{}, fmt.Errorf("claude record line %d: invalid JSON", line)
-		}
-		if rec.Version != 0 && rec.Version != 1 {
-			result.Exclusions = append(result.Exclusions, trace.Exclusion{Line: line, Reason: "unsupported_record_version"})
-			continue
-		}
-		actor := ""
-		if rec.Actor != "" {
-			actor = a.sanitizer.Token("actor", rec.Actor)
-		}
-		var kind string
-		var payload any
-		switch rec.Type {
-		case "session", "session_start":
-			id := modelregistry.Resolve(a.sanitizer.Label(rec.Model))
-			kind = "session"
-			payload = trace.SessionPayload{Model: id.Exact, Provider: id.Provider, Family: id.Family, Actor: actor}
-		case "skill", "skill_use":
-			kind = "skill"
-			payload = trace.SkillPayload{SkillToken: a.sanitizer.Token("skill", rec.Skill)}
-		case "tool_use":
-			red.toolUse(rec.ToolUseID, rec.Tool)
-			kind = "tool"
-			payload = trace.ToolPayload{Tool: a.sanitizer.Label(rec.Tool), Status: "started", CallID: a.sanitizer.Token("call", rec.ToolUseID), Actor: actor}
-		case "tool_result":
-			tool, ok := red.toolResult(rec.ToolUseID)
-			if !ok {
-				result.Exclusions = append(result.Exclusions, trace.Exclusion{Line: line, Reason: "unmatched_tool_result"})
-				continue
-			}
-			kind = "tool"
-			payload = trace.ToolPayload{Tool: a.sanitizer.Label(tool), Status: a.sanitizer.Label(rec.Status), CallID: a.sanitizer.Token("call", rec.ToolUseID), Actor: actor}
-		case "file":
-			kind = "file"
-			payload = trace.FilePayload{Operation: a.sanitizer.Label(rec.Operation), PathToken: a.sanitizer.Token("path", rec.Path)}
-		case "completion":
-			kind = "completion"
-			payload = trace.CompletionPayload{Status: a.sanitizer.Label(rec.Status)}
-		case "usage":
-			kind = "usage"
-			payload = trace.UsagePayload{InputTokens: rec.InputTokens, OutputTokens: rec.OutputTokens}
-		case "subagent_start", "subagent_stop":
-			kind = "session"
-			payload = trace.SessionPayload{Actor: actor}
-		default:
-			result.Exclusions = append(result.Exclusions, trace.Exclusion{Line: line, Reason: "unsupported_record_type"})
-			continue
-		}
+	var (
+		sequence    int64
+		activeSkill string
+		toolIndex   = map[string]int{} // tool_use_id -> index into result.Events
+	)
+	emit := func(line int64, kind string, payload any) {
 		sequence++
 		event, err := trace.NewEvent(kind, sequence, line, payload)
 		if err != nil {
-			return adapters.Result{}, err
+			result.Exclusions = append(result.Exclusions, trace.Exclusion{Line: line, Reason: "unrepresentable_event"})
+			return
 		}
 		result.Events = append(result.Events, event)
 	}
-	if err := s.Err(); err != nil {
-		return adapters.Result{}, fmt.Errorf("read claude trace: %w", err)
+
+	err := adapters.ForEachLine(input, maxRecordBytes, func(line int64, data []byte, terminated bool) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		var rec record
+		if err := json.Unmarshal(data, &rec); err != nil {
+			if !terminated {
+				return adapters.ErrIncompleteTrailingRecord
+			}
+			result.Exclusions = append(result.Exclusions, trace.Exclusion{Line: line, Reason: "invalid_json"})
+			return nil
+		}
+
+		a.captureSession(&result, rec)
+		actor := actorLabel(rec)
+
+		switch rec.Type {
+		case "assistant":
+			// The skill that owns this turn. Emitting only on change turns a
+			// long run of turns under one skill into a single episode span
+			// rather than one episode per turn.
+			if skill := a.skillToken(rec); skill != "" && skill != activeSkill {
+				activeSkill = skill
+				emit(line, "skill", trace.SkillPayload{SkillToken: skill})
+			}
+			for _, b := range contentBlocks(rec.Message.Content) {
+				if b.Type != "tool_use" || b.Name == "" {
+					continue
+				}
+				toolIndex[b.ID] = len(result.Events)
+				emit(line, "tool", trace.ToolPayload{
+					Tool:   a.sanitizer.Label(b.Name),
+					Status: "started",
+					CallID: a.sanitizer.Token("call", b.ID),
+					Actor:  actor,
+				})
+			}
+		case "user":
+			for _, b := range contentBlocks(rec.Message.Content) {
+				if b.Type == "tool_result" {
+					a.recordOutcome(result.Events, toolIndex, b)
+				}
+			}
+		default:
+			// mode, system, attachment, file-history-snapshot and the rest
+			// carry no tool activity; they are context, not exclusions.
+		}
+		return nil
+	})
+	if err != nil {
+		return adapters.Result{}, err
 	}
 	return result, nil
+}
+
+// captureSession fills session metadata from the first record that carries it.
+// Project is reduced to a bare directory name by adapters.ProjectName.
+func (a *Adapter) captureSession(result *adapters.Result, rec record) {
+	if result.Session.Key == "" && rec.SessionID != "" {
+		result.Session.Key = rec.SessionID
+	}
+	if result.Session.Project == "" && rec.CWD != "" {
+		result.Session.Project = adapters.ProjectName(rec.CWD)
+	}
+	if result.Session.Branch == "" && rec.GitBranch != "" {
+		result.Session.Branch = a.sanitizer.Label(rec.GitBranch)
+	}
+	if rec.Timestamp != "" {
+		if result.Session.StartedAt == "" {
+			result.Session.StartedAt = rec.Timestamp
+		}
+		result.Session.EndedAt = rec.Timestamp
+	}
+}
+
+// skillToken resolves the skill active on an assistant turn, preferring the
+// harness's own attribution and falling back to an explicit Skill invocation.
+func (a *Adapter) skillToken(rec record) string {
+	if rec.AttributionSkill != "" {
+		return a.sanitizer.Token("skill", rec.AttributionSkill)
+	}
+	for _, b := range contentBlocks(rec.Message.Content) {
+		if b.Type == "tool_use" && b.Name == "Skill" {
+			var in skillInput
+			if json.Unmarshal(b.Input, &in) == nil && in.Skill != "" {
+				return a.sanitizer.Token("skill", in.Skill)
+			}
+		}
+	}
+	return ""
+}
+
+// recordOutcome patches the tool event a result belongs to, so each tool call
+// is one event carrying its own outcome instead of a started/finished pair.
+func (a *Adapter) recordOutcome(events []trace.Event, toolIndex map[string]int, b block) {
+	idx, ok := toolIndex[b.ToolUseID]
+	if !ok {
+		return
+	}
+	var payload trace.ToolPayload
+	if trace.DecodePayload(events[idx], &payload) != nil {
+		return
+	}
+	payload.Status = "ok"
+	if b.IsError {
+		payload.Status = "error"
+	}
+	if updated, err := json.Marshal(payload); err == nil {
+		events[idx].Payload = updated
+	}
+}
+
+func actorLabel(rec record) string {
+	if rec.IsSidechain {
+		return "subagent"
+	}
+	return "primary"
+}
+
+// contentBlocks returns the block array of a message, tolerating the plain
+// string form that user messages sometimes use instead of an array.
+func contentBlocks(raw json.RawMessage) []block {
+	if len(raw) == 0 {
+		return nil
+	}
+	var blocks []block
+	if json.Unmarshal(raw, &blocks) == nil {
+		return blocks
+	}
+	return nil
 }

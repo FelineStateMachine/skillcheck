@@ -9,6 +9,12 @@ type ScanProgressMsg struct {
 }
 type ScanFinishedMsg struct{ Err error }
 
+// AnalyzeStartedMsg and AnalyzeFinishedMsg give analyze the same visible
+// lifecycle scan already has. Without them a multi-second analyze looks
+// identical to an idle screen.
+type AnalyzeStartedMsg struct{ Skill string }
+type AnalyzeFinishedMsg struct{ Err error }
+
 func (m Model) Update(msg any) Model {
 	switch msg := msg.(type) {
 	case MoveMsg:
@@ -27,6 +33,13 @@ func (m Model) Update(msg any) Model {
 		m.Scanning, m.Stage, m.Done, m.Total = true, msg.Stage, msg.Done, msg.Total
 	case ScanFinishedMsg:
 		m.Scanning = false
+		if msg.Err != nil {
+			m.Error = msg.Err.Error()
+		}
+	case AnalyzeStartedMsg:
+		m.Analyzing, m.AnalyzingSkill, m.Error = true, msg.Skill, ""
+	case AnalyzeFinishedMsg:
+		m.Analyzing, m.AnalyzingSkill = false, ""
 		if msg.Err != nil {
 			m.Error = msg.Err.Error()
 		}

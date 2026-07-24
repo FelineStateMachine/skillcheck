@@ -1,5 +1,5 @@
-{"type":"session_start","version":1,"model":"claude-sonnet-4","actor":"main"}
-{"type":"skill_use","version":1,"skill":"nzip","actor":"agent-1"}
-{"type":"tool_use","version":1,"tool":"Bash","tool_use_id":"call-1","actor":"agent-1"}
-{"type":"tool_result","version":1,"tool_use_id":"call-1","status":"success","actor":"agent-1"}
-{"type":"completion","version":1,"status":"success"}
+{"type":"user","version":"2.1.205","sessionId":"B1","cwd":"/Users/example/Developer/demo","gitBranch":"main","timestamp":"2026-07-08T00:00:00.000Z","message":{"role":"user","content":"package it up"}}
+{"type":"assistant","version":"2.1.205","sessionId":"B1","cwd":"/Users/example/Developer/demo","gitBranch":"main","timestamp":"2026-07-08T00:00:05.000Z","attributionSkill":"nzip","message":{"role":"assistant","content":[{"type":"tool_use","id":"call-1","name":"Read","input":{}},{"type":"tool_use","id":"call-2","name":"Bash","input":{}}]}}
+{"type":"user","version":"2.1.205","sessionId":"B1","timestamp":"2026-07-08T00:00:06.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-1","is_error":false,"content":"ok"},{"type":"tool_result","tool_use_id":"call-2","is_error":false,"content":"ok"}]}}
+{"type":"assistant","version":"2.1.205","sessionId":"B1","cwd":"/Users/example/Developer/demo","gitBranch":"main","timestamp":"2026-07-08T00:00:10.000Z","attributionSkill":"nzip","message":{"role":"assistant","content":[{"type":"tool_use","id":"call-3","name":"Edit","input":{}},{"type":"tool_use","id":"call-4","name":"Bash","input":{}}]}}
+{"type":"user","version":"2.1.205","sessionId":"B1","timestamp":"2026-07-08T00:00:11.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"call-3","is_error":false,"content":"ok"},{"type":"tool_result","tool_use_id":"call-4","is_error":false,"content":"ok"}]}}

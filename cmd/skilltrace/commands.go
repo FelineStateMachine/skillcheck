@@ -19,11 +19,14 @@ import (
 )
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	if len(args) < 1 {
-		return runTUI(stdout, stderr)
+	if len(args) < 1 || strings.HasPrefix(args[0], "-") {
+		return runTUI(args, stdout, stderr)
 	}
 	if args[0] == "source" {
 		return runSource(ctx, args, stdout, stderr)
+	}
+	if args[0] == "sync" {
+		return runSync(ctx, args[1:], stdout, stderr)
 	}
 	if args[0] == "benchmark" {
 		return runBenchmark(ctx, args, stdout, stderr)
@@ -61,9 +64,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	a := app.New(c)
 	switch args[0] {
 	case "discover":
-		if *skillRoot == "" {
-			*skillRoot = filepath.Join(".codex", "skills")
-		}
+		// An empty root searches the default project and global locations for
+		// every known harness rather than only project-local Codex skills.
 		result, err := a.Discover(app.DiscoverRequest{SkillRoot: *skillRoot})
 		if err != nil {
 			return renderError(stdout, *format, "discover", err)
@@ -90,33 +92,57 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-func runTUI(stdout, stderr io.Writer) int {
-	c, err := catalog.Open(defaultCatalogPath())
+func runTUI(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("skilltrace", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	catalogPath := fs.String("catalog", "", "catalog path")
+	skillRoot := fs.String("skill-root", os.Getenv("SKILLTRACE_SKILL_ROOT"), "skill installation root (defaults to the project and global roots for every harness)")
+	scanInput := fs.String("scan-input", os.Getenv("SKILLTRACE_SCAN_INPUT"), "trace JSONL path reachable with the scan key")
+	harness := fs.String("harness", "codex", "harness for the scan input")
+	policyFile := fs.String("policy", "", "policy YAML file reachable with the policy key")
+	cohortLeft := fs.String("left", "", "left cohort definition for the comparison view")
+	cohortRight := fs.String("right", "", "right cohort definition for the comparison view")
+	skill := fs.String("skill", "", "skill to compare cohorts for")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	// The TUI needs a terminal on both ends. Failing here with a generic
+	// message sent users looking for a bug that was really just a pipe.
+	f, ok := stdout.(*os.File)
+	if !ok || !isatty.IsTerminal(f.Fd()) {
+		fmt.Fprintln(stderr, "skilltrace: standard output is not a terminal; use a headless command such as 'skilltrace discover --format json'")
+		return 2
+	}
+
+	if *catalogPath == "" {
+		*catalogPath = defaultCatalogPath()
+	}
+	c, err := catalog.Open(*catalogPath)
 	if err != nil {
-		fmt.Fprintln(stderr, "catalog is unavailable")
+		fmt.Fprintf(stderr, "skilltrace: catalog is unavailable at %s: %v\n", *catalogPath, err)
 		return 1
 	}
 	defer c.Close()
-	skillRoot := os.Getenv("SKILLTRACE_SKILL_ROOT")
-	if skillRoot == "" {
-		skillRoot = filepath.Join(".codex", "skills")
-	}
-	color := false
-	if f, ok := stdout.(*os.File); ok {
-		color = isatty.IsTerminal(f.Fd()) && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == ""
-	}
+
+	color := isatty.IsTerminal(f.Fd()) && os.Getenv("TERM") != "dumb" && os.Getenv("NO_COLOR") == ""
 	locale := strings.ToUpper(os.Getenv("LC_ALL") + os.Getenv("LC_CTYPE") + os.Getenv("LANG"))
 	root, err := tui.Load(app.New(c), tui.Config{
-		SkillRoot: skillRoot, ScanInput: os.Getenv("SKILLTRACE_SCAN_INPUT"), Harness: "codex",
+		SkillRoot: *skillRoot, ScanInput: *scanInput, Harness: *harness,
+		PolicyFile: *policyFile, CohortLeft: *cohortLeft, CohortRight: *cohortRight, Skill: *skill,
 		Color: color, Unicode: strings.Contains(locale, "UTF-8") || strings.Contains(locale, "UTF8"),
 	})
 	if err != nil {
-		fmt.Fprintln(stderr, "could not load discovery")
+		fmt.Fprintf(stderr, "skilltrace: could not load discovery: %v\n", err)
 		return 1
 	}
-	if _, err := tea.NewProgram(root, tea.WithOutput(stdout)).Run(); err != nil {
-		fmt.Fprintln(stderr, "terminal session failed")
+	final, err := tea.NewProgram(root, tea.WithOutput(stdout)).Run()
+	if err != nil {
+		fmt.Fprintf(stderr, "skilltrace: terminal session failed: %v\n", err)
 		return 1
+	}
+	if session, ok := final.(*tui.Root); ok && session.Interrupted {
+		return 130
 	}
 	return 0
 }

@@ -6,7 +6,9 @@ type Node struct {
 	ID     string `json:"id"`
 	Stage  Stage  `json:"stage"`
 	Action string `json:"action"`
+	Class  Class  `json:"class"`
 	Count  int    `json:"count"`
+	Errors int    `json:"errors,omitempty"`
 }
 type Edge struct {
 	From     string   `json:"from"`
@@ -29,10 +31,14 @@ func Project(variants []Variant) Graph {
 			id := string(step.Stage) + ":" + step.Action
 			n := nodes[id]
 			if n == nil {
-				n = &Node{ID: id, Stage: step.Stage, Action: step.Action}
+				n = &Node{ID: id, Stage: step.Stage, Action: step.Action, Class: step.Class}
 				nodes[id] = n
 			}
-			n.Count += variant.Count
+			// Weight by how many episodes took this variant and how many times
+			// the step repeated within it, so a node's count reflects real
+			// tool volume rather than distinct appearances.
+			n.Count += variant.Count * max(step.Repeat, 1)
+			n.Errors += variant.Count * step.Errors
 			if index > 0 {
 				key := previous + ">" + id
 				e := edges[key]
