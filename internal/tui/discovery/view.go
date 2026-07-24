@@ -2,12 +2,13 @@ package discovery
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 
+	"skilltrace/internal/app"
 	"skilltrace/internal/text"
-	"skilltrace/internal/tui/source"
 	"skilltrace/internal/tui/viewport"
 )
 
@@ -128,15 +129,21 @@ func (m Model) emptyState(styles Styles) []string {
 
 func (m Model) footer(styles Styles, unicode bool, width int) []string {
 	lines := []string{"", styles.Heading.Render("Sources")}
-	if len(m.Snapshot.Sources) == 0 {
+	// Machine-wide sync produces one source per session — thousands of them.
+	// Listing each would bury the skill list, so sources are summarised per
+	// harness: how many sessions, how many events, how many excluded.
+	summaries := summariseSources(m.Snapshot.Sources)
+	if len(summaries) == 0 {
 		lines = append(lines, styles.Muted.Render("  No cached source snapshots"))
 	}
-	for _, snapshot := range m.Snapshot.Sources {
-		row := source.Model{Harness: snapshot.Harness, Status: snapshot.Status, Revision: snapshot.Revision, Stale: snapshot.Freshness == "stale"}
-		line := fmt.Sprintf("  %s %d events / %d excluded (rev %d, %s)",
-			text.Cell(row.Label(), 28), snapshot.EventCount, snapshot.ExclusionCount, snapshot.Revision, snapshot.Freshness)
+	for _, s := range summaries {
+		line := fmt.Sprintf("  %s %d sessions · %d events", text.Cell(s.Harness, 10), s.Sessions, s.Events)
+		if s.Excluded > 0 {
+			line += fmt.Sprintf(" · %d excluded", s.Excluded)
+		}
 		style := styles.Good
-		if row.Stale {
+		if s.Stale > 0 {
+			line += fmt.Sprintf(" · %d stale", s.Stale)
 			style = styles.Warning
 		}
 		lines = append(lines, style.Render(text.Clip(line, width)))
@@ -164,6 +171,40 @@ func (m Model) footer(styles Styles, unicode bool, width int) []string {
 	}
 
 	return append(lines, "", styles.Muted.Render(text.Clip(m.hints(unicode), width)))
+}
+
+// sourceSummary is per-harness aggregate of the cached sources.
+type sourceSummary struct {
+	Harness                    string
+	Sessions, Events, Excluded int
+	Stale                      int
+}
+
+// summariseSources rolls the per-session sources up by harness, ordered by
+// harness name so the block is stable across runs.
+func summariseSources(sources []app.SourceSnapshot) []sourceSummary {
+	byHarness := map[string]*sourceSummary{}
+	var order []string
+	for _, s := range sources {
+		agg := byHarness[s.Harness]
+		if agg == nil {
+			agg = &sourceSummary{Harness: s.Harness}
+			byHarness[s.Harness] = agg
+			order = append(order, s.Harness)
+		}
+		agg.Sessions++
+		agg.Events += s.EventCount
+		agg.Excluded += s.ExclusionCount
+		if s.Freshness == "stale" {
+			agg.Stale++
+		}
+	}
+	sort.Strings(order)
+	out := make([]sourceSummary, 0, len(order))
+	for _, h := range order {
+		out = append(out, *byHarness[h])
+	}
+	return out
 }
 
 func (m Model) progress() string {
