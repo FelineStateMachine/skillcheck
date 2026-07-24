@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"skilltrace/internal/text"
 )
 
 func Discover(roots []Exposure) (Result, error) {
@@ -101,5 +103,9 @@ func frontmatter(doc string) (string, string, bool) {
 			vals[strings.TrimSpace(p[0])] = strings.Trim(strings.TrimSpace(p[1]), "\"'")
 		}
 	}
-	return vals["name"], vals["description"], closed && vals["name"] != ""
+	// Names and descriptions come from third-party skill documents and are
+	// rendered straight into a terminal, so control sequences are stripped at
+	// ingest rather than at each display site.
+	name := text.Sanitize(vals["name"])
+	return name, text.Sanitize(vals["description"]), closed && name != ""
 }

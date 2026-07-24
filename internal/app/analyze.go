@@ -40,7 +40,7 @@ func (a *Application) Analyze(ctx context.Context, req AnalyzeRequest) (AnalyzeR
 	if len(episodes) == 0 {
 		state = "no_uses"
 	}
-	workflowResult, err := a.BuildWorkflow(ctx, episodes)
+	workflowResult, err := a.BuildWorkflow(ctx, episodes, events)
 	if err != nil {
 		return AnalyzeResult{}, err
 	}

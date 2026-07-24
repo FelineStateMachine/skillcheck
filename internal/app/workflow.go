@@ -15,11 +15,10 @@ type WorkflowResult struct {
 	Capabilities trace.CapabilityProfile `json:"capabilities"`
 }
 
-func (a *Application) BuildWorkflow(ctx context.Context, episodes []detection.Episode) (WorkflowResult, error) {
-	events, err := a.Catalog.CurrentEvents(ctx)
-	if err != nil {
-		return WorkflowResult{}, err
-	}
+// BuildWorkflow projects episodes onto the events they were attributed from.
+// The caller supplies the events because loading them is the dominant cost of
+// an analyze, and the analyze path has already materialised them.
+func (a *Application) BuildWorkflow(ctx context.Context, episodes []detection.Episode, events []trace.Event) (WorkflowResult, error) {
 	variants := workflow.ExactVariants(episodes, events)
 	metrics := workflow.Metrics{Samples: len(episodes), Variants: len(variants)}
 	for _, episode := range episodes {
