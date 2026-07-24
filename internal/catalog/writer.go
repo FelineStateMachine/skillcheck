@@ -62,6 +62,22 @@ func (c *Catalog) ReplaceSource(ctx context.Context, sourceKey string, result ad
 			return snapshot, err
 		}
 	}
+	// One source is one recorded run, so the session row is replaced with the
+	// source. Project is already reduced to a bare directory name by the
+	// adapter; nothing here should ever hold a path.
+	if _, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE source_id=?`, sourceID); err != nil {
+		return snapshot, err
+	}
+	sessionKey := result.Session.Key
+	if sessionKey == "" {
+		sessionKey = sourceKey
+	}
+	if _, err = tx.ExecContext(ctx,
+		`INSERT INTO sessions(source_id,session_key,harness,project,branch,started_at,ended_at) VALUES(?,?,?,?,?,?,?)`,
+		sourceID, sessionKey, result.Harness, result.Session.Project, result.Session.Branch,
+		result.Session.StartedAt, result.Session.EndedAt); err != nil {
+		return snapshot, fmt.Errorf("insert session: %w", err)
+	}
 	if err = tx.Commit(); err != nil {
 		return snapshot, err
 	}

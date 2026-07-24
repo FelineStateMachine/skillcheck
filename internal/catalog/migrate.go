@@ -24,7 +24,7 @@ func migrate(ctx context.Context, db *sql.DB) (err error) {
 	if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY)`); err != nil {
 		return err
 	}
-	migrations := []migration{{1, initialMigration}, {2, analysisMigration}, {3, workflowMigration}, {4, cohortMigration}, {5, policyMigration}, {6, lifecycleMigration}}
+	migrations := []migration{{1, initialMigration}, {2, analysisMigration}, {3, workflowMigration}, {4, cohortMigration}, {5, policyMigration}, {6, lifecycleMigration}, {7, sessionsMigration}}
 	for _, m := range migrations {
 		var found int
 		scanErr := tx.QueryRowContext(ctx, `SELECT version FROM schema_migrations WHERE version=?`, m.version).Scan(&found)

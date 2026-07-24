@@ -7,24 +7,67 @@ import (
 	"skilltrace/internal/trace"
 )
 
-func (c *Catalog) CurrentEvents(ctx context.Context) ([]trace.Event, error) {
-	rows, err := c.db.QueryContext(ctx, `SELECT e.sequence,e.kind,e.contract_version,e.coordinate_json,e.payload_json FROM events e JOIN snapshots s ON s.id=e.snapshot_id ORDER BY e.sequence`)
+// Session identifies one recorded run of a harness. Project is a bare
+// directory name rather than a path, per docs/privacy.md.
+type Session struct {
+	Key       string `json:"key"`
+	Harness   string `json:"harness"`
+	Project   string `json:"project,omitempty"`
+	Branch    string `json:"branch,omitempty"`
+	StartedAt string `json:"started_at,omitempty"`
+}
+
+// SessionEvents is one session's events, in sequence order.
+type SessionEvents struct {
+	Session Session
+	Events  []trace.Event
+}
+
+// CurrentSessions returns the committed events grouped by the source that
+// produced them.
+//
+// Sequences are numbered per source, so a query that ordered globally by
+// sequence interleaved unrelated sessions: episode windows absorbed another
+// session's events, and sequence-keyed lookups downstream collided outright.
+// Grouping here is what makes every sequence-keyed consumer safe.
+func (c *Catalog) CurrentSessions(ctx context.Context) ([]SessionEvents, error) {
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT s.id, src.source_key, src.harness,
+		       COALESCE(ses.project,''), COALESCE(ses.branch,''), COALESCE(ses.started_at,''),
+		       e.sequence, e.kind, e.contract_version, e.coordinate_json, e.payload_json
+		FROM events e
+		JOIN snapshots s ON s.id = e.snapshot_id
+		JOIN sources src ON src.id = s.source_id
+		LEFT JOIN sessions ses ON ses.source_id = src.id
+		ORDER BY s.id, e.sequence`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []trace.Event
+
+	var out []SessionEvents
+	var currentID int64 = -1
 	for rows.Next() {
-		var e trace.Event
-		var coordinate, payload string
-		if err := rows.Scan(&e.Sequence, &e.Kind, &e.Version, &coordinate, &payload); err != nil {
+		var (
+			snapshotID                        int64
+			key, harness, project, branch, at string
+			e                                 trace.Event
+			coordinate, payload               string
+		)
+		if err := rows.Scan(&snapshotID, &key, &harness, &project, &branch, &at,
+			&e.Sequence, &e.Kind, &e.Version, &coordinate, &payload); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(coordinate), &e.Coordinate); err != nil {
 			return nil, err
 		}
 		e.Payload = []byte(payload)
-		out = append(out, e)
+		if snapshotID != currentID {
+			currentID = snapshotID
+			out = append(out, SessionEvents{Session: Session{Key: key, Harness: harness, Project: project, Branch: branch, StartedAt: at}})
+		}
+		last := &out[len(out)-1]
+		last.Events = append(last.Events, e)
 	}
 	return out, rows.Err()
 }
