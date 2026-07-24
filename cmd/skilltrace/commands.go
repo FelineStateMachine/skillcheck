@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -150,7 +149,9 @@ func runSource(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		if *input == "" || *harness == "" {
 			return renderError(stdout, *format, "source scan", apperror.Wrap("invalid_arguments", "input and harness are required", nil))
 		}
-		result, err := a.Scan(ctx, app.ScanRequest{Input: *input, Harness: *harness}, nil)
+		result, err := a.Scan(ctx, app.ScanRequest{Input: *input, Harness: *harness}, func(p app.Progress) {
+			_ = headless.RenderProgress(stderr, "source scan", p.Stage, p.Completed, p.Total)
+		})
 		if err != nil {
 			return renderError(stdout, *format, "source scan", err)
 		}
@@ -175,13 +176,10 @@ func runSource(ctx context.Context, args []string, stdout, stderr io.Writer) int
 }
 
 func renderError(w io.Writer, format, command string, err error) int {
-	var ae *apperror.Error
-	code, message := "internal_error", "operation failed"
-	if errors.As(err, &ae) {
-		code, message = ae.Code, ae.Message
-	}
+	ae := apperror.Public(err)
+	code, message := ae.Code, ae.Message
 	_ = headless.Render(w, format, headless.Failure(command, code, message))
-	return 1
+	return headless.ExitCode(code)
 }
 
 func defaultCatalogPath() string {

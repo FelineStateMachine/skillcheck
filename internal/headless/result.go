@@ -13,8 +13,8 @@ type Envelope struct {
 }
 
 func Success(command string, data any) Envelope {
-	return Envelope{Version: 1, OK: true, Command: command, Data: data}
+	return Envelope{Version: SchemaVersion, OK: true, Command: command, Data: data}
 }
 func Failure(command, code, message string) Envelope {
-	return Envelope{Version: 1, OK: false, Command: command, Error: &ErrorDetail{Code: code, Message: message}}
+	return Envelope{Version: SchemaVersion, OK: false, Command: command, Error: &ErrorDetail{Code: code, Message: message}}
 }

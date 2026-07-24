@@ -1,0 +1,16 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod, cache: true }
+      - run: VERSION=${GITHUB_REF_NAME#v} ./scripts/package-release.sh
+      - uses: softprops/action-gh-release@v2
+        with: { files: 'dist/*.tar.gz' }
