@@ -1,0 +1,1 @@
+{"harness":"claude","raw_retained":true,"raw_trace":[{"type":"session_start","version":1,"model":"claude-sonnet-4","actor":"main"},{"type":"skill_use","version":1,"skill":"nzip","actor":"agent-1"},{"type":"completion","version":1,"status":"success"}]}

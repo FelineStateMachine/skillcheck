@@ -8,7 +8,10 @@ import (
 	"io"
 	"os"
 
+	"skilltrace/internal/adapters"
+	"skilltrace/internal/adapters/claude"
 	"skilltrace/internal/adapters/codex"
+	"skilltrace/internal/adapters/huggingface"
 	"skilltrace/internal/apperror"
 	"skilltrace/internal/catalog"
 	"skilltrace/internal/trace"
@@ -21,7 +24,12 @@ type ScanResult struct {
 }
 
 func (a *Application) Scan(ctx context.Context, req ScanRequest, progress ProgressFunc) (ScanResult, error) {
-	if req.Harness != "codex" {
+	registry := adapters.NewRegistry()
+	sanitizer := trace.NewHashSanitizer("skilltrace-v1")
+	registry.Register("codex", codex.New(sanitizer))
+	registry.Register("claude", claude.New(sanitizer))
+	registry.Register("huggingface", huggingface.New(sanitizer))
+	if !registry.Supports(req.Harness) {
 		return ScanResult{}, apperror.Wrap("unsupported_harness", "unsupported harness", nil)
 	}
 	f, err := os.Open(req.Input)
@@ -32,7 +40,7 @@ func (a *Application) Scan(ctx context.Context, req ScanRequest, progress Progre
 	if progress != nil {
 		progress(Progress{Stage: "parsing", Completed: 0, Total: 1})
 	}
-	result, err := codex.New(trace.NewHashSanitizer("skilltrace-v1")).Parse(ctx, f)
+	result, err := registry.Parse(ctx, req.Harness, f)
 	if err != nil {
 		return ScanResult{}, apperror.Wrap("malformed_source", "source could not be parsed", err)
 	}
@@ -51,7 +59,15 @@ func (a *Application) Scan(ctx context.Context, req ScanRequest, progress Progre
 	if progress != nil {
 		progress(Progress{Stage: "committed", Completed: 1, Total: 1})
 	}
-	return ScanResult{Source: catalog.Health{SourceKey: sourceKey, Harness: req.Harness, Status: "supported", Revision: snapshot.Revision, EventCount: snapshot.EventCount, ExclusionCount: snapshot.ExclusionCount}, Capabilities: result.Capabilities}, nil
+	status := "full"
+	if len(result.Exclusions) > 0 {
+		status = "partial"
+	}
+	// Preserve the V1 Codex health label consumed by existing clients.
+	if req.Harness == "codex" {
+		status = "supported"
+	}
+	return ScanResult{Source: catalog.Health{SourceKey: sourceKey, Harness: req.Harness, Status: status, Revision: snapshot.Revision, EventCount: snapshot.EventCount, ExclusionCount: snapshot.ExclusionCount}, Capabilities: result.Capabilities}, nil
 }
 
 func (a *Application) Health() ([]catalog.Health, error) {

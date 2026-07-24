@@ -12,6 +12,13 @@ type Result struct {
 	Events       []trace.Event
 	Exclusions   []trace.Exclusion
 	Capabilities trace.CapabilityProfile
+	Eligibility  []Eligibility
+}
+
+type Eligibility struct {
+	Row      int64  `json:"row"`
+	Eligible bool   `json:"eligible"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 type Adapter interface {

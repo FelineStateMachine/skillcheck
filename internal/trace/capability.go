@@ -11,3 +11,7 @@ type CapabilityProfile struct {
 func CodexCapabilities() CapabilityProfile {
 	return CapabilityProfile{Actors: false, SkillEvidence: true, ToolCalls: true, FileEvents: true, Usage: true}
 }
+
+func ClaudeCapabilities() CapabilityProfile {
+	return CapabilityProfile{Actors: true, SkillEvidence: true, ToolCalls: true, FileEvents: true, Usage: true}
+}

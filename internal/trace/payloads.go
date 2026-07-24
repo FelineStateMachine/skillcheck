@@ -1,7 +1,10 @@
 package trace
 
 type SessionPayload struct {
-	Model string `json:"model,omitempty"`
+	Model    string `json:"model,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Family   string `json:"family,omitempty"`
+	Actor    string `json:"actor,omitempty"`
 }
 type SkillPayload struct {
 	SkillToken string `json:"skill_token"`
@@ -9,6 +12,8 @@ type SkillPayload struct {
 type ToolPayload struct {
 	Tool   string `json:"tool"`
 	Status string `json:"status,omitempty"`
+	CallID string `json:"call_id,omitempty"`
+	Actor  string `json:"actor,omitempty"`
 }
 type FilePayload struct {
 	Operation string `json:"operation"`
